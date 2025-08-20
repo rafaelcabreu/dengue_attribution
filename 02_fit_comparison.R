@@ -4,7 +4,7 @@ library(magrittr)
 library(fixest)
 
 # Load data
-dengue_temp <- read_csv("model_input_brazil_immunity.csv")
+dengue_temp <- read_csv("data/model_input_brazil_immunity_city.csv")
 
 # Define models
 models <- list(
@@ -105,15 +105,23 @@ models <- list(
     'mean_2m_air_temp_degree1_lag1',
     'mean_2m_air_temp_degree1_lag2',
     'mean_2m_air_temp_degree1_lag3',
+    'mean_2m_air_temp_degree1_lag4',
+    'mean_2m_air_temp_degree1_lag5',
     'mean_2m_air_temp_degree2_lag1',
     'mean_2m_air_temp_degree2_lag2',
     'mean_2m_air_temp_degree2_lag3',
+    'mean_2m_air_temp_degree2_lag4',
+    'mean_2m_air_temp_degree2_lag5',
     'mean_2m_air_temp_degree3_lag1',
     'mean_2m_air_temp_degree3_lag2',
     'mean_2m_air_temp_degree3_lag3',
+    'mean_2m_air_temp_degree3_lag4',
+    'mean_2m_air_temp_degree3_lag5',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
+    'total_precipitation_lag4',
+    'total_precipitation_lag5',
     'month',
     'year',
     'city_residency',

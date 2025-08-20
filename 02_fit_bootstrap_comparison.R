@@ -6,7 +6,8 @@ library(foreach)
 library(doParallel)
 
 # load data
-dengue_temp <- read_csv("model_input_brazil_immunity_city.csv")
+dengue_temp <- read_csv("data/model_input_brazil_immunity_city.csv")
+dengue_temp$log_pop_offset <- log(dengue_temp$population/100000)
 
 # Define models with temperature terms
 models_with_temp <- list(
@@ -17,9 +18,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag1',
     'mean_2m_air_temp_degree2_lag2',
     'mean_2m_air_temp_degree2_lag3',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -33,9 +31,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag1',
     'mean_2m_air_temp_degree2_lag2',
     'mean_2m_air_temp_degree2_lag3',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -50,9 +45,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag1',
     'mean_2m_air_temp_degree2_lag2',
     'mean_2m_air_temp_degree2_lag3',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -74,11 +66,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag3',
     'mean_2m_air_temp_degree2_lag4',
     'mean_2m_air_temp_degree2_lag5',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
-    'mean_2m_air_temp_degree3_lag4',
-    'mean_2m_air_temp_degree3_lag5',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -87,7 +74,7 @@ models_with_temp <- list(
     'month',
     'year',
     'city_residency'
-  )
+  ),
   'childs' = c(
     'mean_2m_air_temp_degree1_lag1',
     'mean_2m_air_temp_degree1_lag2',
@@ -108,13 +95,30 @@ models_with_temp <- list(
   'lag1' = c(
     'mean_2m_air_temp_degree1_lag1',
     'mean_2m_air_temp_degree2_lag1',
-    'mean_2m_air_temp_degree3_lag1',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
     'month',
     'year',
     'city_residency'
+  ),
+  'socioeconomic' = c(
+    'mean_2m_air_temp_degree1_lag1',
+    'mean_2m_air_temp_degree1_lag2',
+    'mean_2m_air_temp_degree1_lag3',
+    'mean_2m_air_temp_degree2_lag1',
+    'mean_2m_air_temp_degree2_lag2',
+    'mean_2m_air_temp_degree2_lag3',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'month',
+    'year',
+    'city_residency',
+    'water_sanitation',
+    'pib_2021',
+    'percent_urban',
+    'urban_pop'
   )
 )
 
@@ -163,20 +167,20 @@ boot_fit_model <- function(df_ids, # dataset with state IDs
   
   # Create formula
   if(length(predictors) > 0 && length(fixed_effects) > 0) {
-    formula_str <- paste("dengue_inc ~", paste(predictors, collapse = " + "), "|", paste(fixed_effects, collapse = " + "))
+    formula_str <- paste("n_cases ~", paste(predictors, collapse = " + "), "|", paste(fixed_effects, collapse = " + "))
   } else if(length(predictors) > 0) {
-    formula_str <- paste("dengue_inc ~", paste(predictors, collapse = " + "))
+    formula_str <- paste("n_cases ~", paste(predictors, collapse = " + "))
   } else if(length(fixed_effects) > 0) {
-    formula_str <- paste("dengue_inc ~ 1 |", paste(fixed_effects, collapse = " + "))
+    formula_str <- paste("n_cases ~ 1 |", paste(fixed_effects, collapse = " + "))
   } else {
-    formula_str <- "dengue_inc ~ 1"
+    formula_str <- "n_cases ~ 1"
   }
   
   model_formula <- as.formula(formula_str)
 
   # Fit the model with new cluster structure
   model <- fixest::fepois(model_formula,
-                          weights = ~population, # population weight
+                          offset = ~log_pop_offset, # population weight
                           data = boot_data,
                           nthreads = 2)
 
@@ -286,19 +290,19 @@ for(model_name in names(models_with_temp)) {
     
     # Create formula
     if(length(predictors) > 0 && length(fixed_effects) > 0) {
-      formula_str <- paste("dengue_inc ~", paste(predictors, collapse = " + "), "|", paste(fixed_effects, collapse = " + "))
+      formula_str <- paste("n_cases ~", paste(predictors, collapse = " + "), "|", paste(fixed_effects, collapse = " + "))
     } else if(length(predictors) > 0) {
-      formula_str <- paste("dengue_inc ~", paste(predictors, collapse = " + "))
+      formula_str <- paste("n_cases ~", paste(predictors, collapse = " + "))
     } else if(length(fixed_effects) > 0) {
-      formula_str <- paste("dengue_inc ~ 1 |", paste(fixed_effects, collapse = " + "))
+      formula_str <- paste("n_cases ~ 1 |", paste(fixed_effects, collapse = " + "))
     } else {
-      formula_str <- "dengue_inc ~ 1"
+      formula_str <- "n_cases ~ 1"
     }
     
     model_formula <- as.formula(formula_str)
     
     original_model <- fixest::fepois(model_formula,
-                                     weights = ~population,
+                                     offest = ~log_pop_offset,
                                      data = dengue_temp)
     
     original_coefs <- data.frame(t(coef(original_model)))
@@ -320,14 +324,14 @@ cat("Models with successful bootstrap:", sum(sapply(all_bootstrap_results, funct
 # Combine all bootstrap results
 if(length(all_bootstrap_results) > 0) {
   combined_bootstrap <- do.call("bind_rows", all_bootstrap_results)
-  write_csv(combined_bootstrap, paste0("all_models_bootstrap_results", n_boot, ".csv"))
+  write_csv(combined_bootstrap, paste0("data/all_models_bootstrap_results", n_boot, ".csv"))
   cat("Combined bootstrap results saved to: all_models_bootstrap_results", n_boot, ".csv\n")
 }
 
 # Combine all original results
 if(length(all_original_results) > 0) {
   combined_original <- do.call("bind_rows", all_original_results)
-  write_csv(combined_original, "all_models_original_coefficients.csv")
+  write_csv(combined_original, "data/all_models_original_coefficients.csv")
   cat("Combined original results saved to: all_models_original_coefficients.csv\n")
 }
 

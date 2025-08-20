@@ -7,6 +7,7 @@ library(doParallel)
 
 # load data
 dengue_temp <- read_csv("data/model_input_brazil_immunity_city.csv")
+dengue_temp$log_pop_offset <- log(dengue_temp$population/100000)
 
 # Load pre-sampled bootstrap states (first 10 iterations)
 bootstrap_states <- read_csv2("data/bootstrap_state_samples.csv", col_names = TRUE, locale = locale(encoding = "UTF-8"), n_max = 1000)
@@ -37,9 +38,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag1',
     'mean_2m_air_temp_degree2_lag2',
     'mean_2m_air_temp_degree2_lag3',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -54,9 +52,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag1',
     'mean_2m_air_temp_degree2_lag2',
     'mean_2m_air_temp_degree2_lag3',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -78,11 +73,6 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag3',
     'mean_2m_air_temp_degree2_lag4',
     'mean_2m_air_temp_degree2_lag5',
-    'mean_2m_air_temp_degree3_lag1',
-    'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
-    'mean_2m_air_temp_degree3_lag4',
-    'mean_2m_air_temp_degree3_lag5',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -112,13 +102,30 @@ models_with_temp <- list(
   'lag1' = c(
     'mean_2m_air_temp_degree1_lag1',
     'mean_2m_air_temp_degree2_lag1',
-    'mean_2m_air_temp_degree3_lag1',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
     'month',
     'year',
     'city_residency'
+  ),
+  'socioeconomic' = c(
+    'mean_2m_air_temp_degree1_lag1',
+    'mean_2m_air_temp_degree1_lag2',
+    'mean_2m_air_temp_degree1_lag3',
+    'mean_2m_air_temp_degree2_lag1',
+    'mean_2m_air_temp_degree2_lag2',
+    'mean_2m_air_temp_degree2_lag3',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'month',
+    'year',
+    'city_residency',
+    'water_sanitation',
+    'pib_2021',
+    'percent_urban',
+    'urban_pop'
   )
 )
 
@@ -171,8 +178,8 @@ boot_fit_model_rsq_presampled <- function(df_full, # full dataset
     return(NULL)
   }
   
-  # Check if dengue_inc and population exist
-  if(!"dengue_inc" %in% names(boot_data) || !"population" %in% names(boot_data)) {
+  # Check if n_cases and population exist
+  if(!"n_cases" %in% names(boot_data) || !"population" %in% names(boot_data)) {
     return(NULL)
   }
 
@@ -190,13 +197,13 @@ boot_fit_model_rsq_presampled <- function(df_full, # full dataset
   
   # Create formula
   if(length(predictors) > 0 && length(fixed_effects) > 0) {
-    formula_str <- paste("dengue_inc ~", paste(predictors, collapse = " + "), "|", paste(fixed_effects, collapse = " + "))
+    formula_str <- paste("n_cases ~", paste(predictors, collapse = " + "), "|", paste(fixed_effects, collapse = " + "))
   } else if(length(predictors) > 0) {
-    formula_str <- paste("dengue_inc ~", paste(predictors, collapse = " + "))
+    formula_str <- paste("n_cases ~", paste(predictors, collapse = " + "))
   } else if(length(fixed_effects) > 0) {
-    formula_str <- paste("dengue_inc ~ 1 |", paste(fixed_effects, collapse = " + "))
+    formula_str <- paste("n_cases ~ 1 |", paste(fixed_effects, collapse = " + "))
   } else {
-    formula_str <- "dengue_inc ~ 1"
+    formula_str <- "n_cases ~ 1"
   }
   
   model_formula <- as.formula(formula_str)
@@ -204,7 +211,7 @@ boot_fit_model_rsq_presampled <- function(df_full, # full dataset
   tryCatch({
     # Fit the model with pre-sampled cluster structure
     model <- fixest::fepois(model_formula,
-                            weights = ~population, # population weight
+                            offset = ~log_pop_offset,
                             data = boot_data,
                             nthreads = 2)
 
