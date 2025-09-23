@@ -2,12 +2,51 @@
 library(tidyverse)
 library(magrittr)
 library(fixest)
-library(foreach)
-library(doParallel)
+library(splines)
 
 # load data
-dengue_temp <- read_csv("data/model_input_brazil_immunity_city.csv")
+dengue_temp <- read_csv("data/model_input_brazil_lag1_immunity_city.csv")
 dengue_temp$log_pop_offset <- log(dengue_temp$population/100000)
+
+temp_bs_fitted_lag1 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag1, df = 4)
+temp_bs_fitted_lag2 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag2, df = 4)
+temp_bs_fitted_lag3 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag3, df = 4)
+temp_bs_fitted_lag4 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag4, df = 4)
+temp_bs_fitted_lag5 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag5, df = 4)
+
+# Add individual B-spline columns to the dataframe
+dengue_temp <- dengue_temp %>%
+    mutate(
+      # Lag 1 B-splines
+      temp_bs_lag11 = temp_bs_fitted_lag1[,1],
+      temp_bs_lag12 = temp_bs_fitted_lag1[,2],
+      temp_bs_lag13 = temp_bs_fitted_lag1[,3],
+      temp_bs_lag14 = temp_bs_fitted_lag1[,4],
+      
+      # Lag 2 B-splines
+      temp_bs_lag21 = temp_bs_fitted_lag2[,1],
+      temp_bs_lag22 = temp_bs_fitted_lag2[,2],
+      temp_bs_lag23 = temp_bs_fitted_lag2[,3],
+      temp_bs_lag24 = temp_bs_fitted_lag2[,4],
+      
+      # Lag 3 B-splines
+      temp_bs_lag31 = temp_bs_fitted_lag3[,1],
+      temp_bs_lag32 = temp_bs_fitted_lag3[,2],
+      temp_bs_lag33 = temp_bs_fitted_lag3[,3],
+      temp_bs_lag34 = temp_bs_fitted_lag3[,4],
+      
+      # Lag 4 B-splines
+      temp_bs_lag41 = temp_bs_fitted_lag4[,1],
+      temp_bs_lag42 = temp_bs_fitted_lag4[,2],
+      temp_bs_lag43 = temp_bs_fitted_lag4[,3],
+      temp_bs_lag44 = temp_bs_fitted_lag4[,4],
+      
+      # Lag 5 B-splines
+      temp_bs_lag51 = temp_bs_fitted_lag5[,1],
+      temp_bs_lag52 = temp_bs_fitted_lag5[,2],
+      temp_bs_lag53 = temp_bs_fitted_lag5[,3],
+      temp_bs_lag54 = temp_bs_fitted_lag5[,4],
+    )
 
 # Load pre-sampled bootstrap states (first 10 iterations)
 bootstrap_states <- read_csv2("data/bootstrap_state_samples.csv", col_names = TRUE, locale = locale(encoding = "UTF-8"), n_max = 1000)
@@ -32,12 +71,18 @@ models_with_temp <- list(
     'city_residency'
   ),
   'standard' = c(
-    'mean_2m_air_temp_degree1_lag1',
-    'mean_2m_air_temp_degree1_lag2',
-    'mean_2m_air_temp_degree1_lag3',
-    'mean_2m_air_temp_degree2_lag1',
-    'mean_2m_air_temp_degree2_lag2',
-    'mean_2m_air_temp_degree2_lag3',
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',  
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -46,12 +91,18 @@ models_with_temp <- list(
     'city_residency'
   ),
   'with_immunity' = c(
-    'mean_2m_air_temp_degree1_lag1',
-    'mean_2m_air_temp_degree1_lag2',
-    'mean_2m_air_temp_degree1_lag3',
-    'mean_2m_air_temp_degree2_lag1',
-    'mean_2m_air_temp_degree2_lag2',
-    'mean_2m_air_temp_degree2_lag3',
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',  
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -63,21 +114,31 @@ models_with_temp <- list(
     'immunity_lag3'
   ),
   'lag_45' = c(
-    'mean_2m_air_temp_degree1_lag1',
-    'mean_2m_air_temp_degree1_lag2',
-    'mean_2m_air_temp_degree1_lag3',
-    'mean_2m_air_temp_degree1_lag4',
-    'mean_2m_air_temp_degree1_lag5',
-    'mean_2m_air_temp_degree2_lag1',
-    'mean_2m_air_temp_degree2_lag2',
-    'mean_2m_air_temp_degree2_lag3',
-    'mean_2m_air_temp_degree2_lag4',
-    'mean_2m_air_temp_degree2_lag5',
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',  
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'temp_bs_lag41',
+    'temp_bs_lag42',
+    'temp_bs_lag43',
+    'temp_bs_lag44',
+    'temp_bs_lag51',
+    'temp_bs_lag52',
+    'temp_bs_lag53',
+    'temp_bs_lag54',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
     'total_precipitation_lag4',
-    'total_precipitation_lag5', 
+    'total_precipitation_lag5',
     'month',
     'year',
     'city_residency'
@@ -91,7 +152,7 @@ models_with_temp <- list(
     'mean_2m_air_temp_degree2_lag3',
     'mean_2m_air_temp_degree3_lag1',
     'mean_2m_air_temp_degree3_lag2',
-    'mean_2m_air_temp_degree3_lag3',
+    'mean_2m_air_temp_degree3_lag3',      
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -100,22 +161,28 @@ models_with_temp <- list(
     'city_residency'
   ),
   'lag1' = c(
-    'mean_2m_air_temp_degree1_lag1',
-    'mean_2m_air_temp_degree2_lag1',
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',
     'total_precipitation_lag1',
-    'total_precipitation_lag2',
-    'total_precipitation_lag3',
     'month',
     'year',
     'city_residency'
   ),
   'socioeconomic' = c(
-    'mean_2m_air_temp_degree1_lag1',
-    'mean_2m_air_temp_degree1_lag2',
-    'mean_2m_air_temp_degree1_lag3',
-    'mean_2m_air_temp_degree2_lag1',
-    'mean_2m_air_temp_degree2_lag2',
-    'mean_2m_air_temp_degree2_lag3',
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',  
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
     'total_precipitation_lag1',
     'total_precipitation_lag2',
     'total_precipitation_lag3',
@@ -126,6 +193,27 @@ models_with_temp <- list(
     'pib_2021',
     'percent_urban',
     'urban_pop'
+  ),
+  'lag1_cases' = c(
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',  
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'n_cases_lag1',
+    'month',
+    'year',
+    'city_residency'
   )
 )
 
@@ -158,27 +246,28 @@ boot_strat_presampled <- function(df_full, # full dataset
   return(df_out)
 }
 
-# Fitting function for pre-sampled bootstrapped samples
+# Fitting function for pre-sampled bootstrapped samples (now with AIC)
 boot_fit_model_rsq_presampled <- function(df_full, # full dataset
                                           bootstrap_iter, # bootstrap iteration
                                           bootstrap_data, # pre-sampled states
                                           model_vars, # variables for this model
                                           state_id_var = "state_residency"){
 
+  cat("Bootstrap iteration", bootstrap_iter, "\n")
   # Get bootstrapped sample using pre-sampled states
   boot_data <- boot_strat_presampled(df_full, bootstrap_iter, bootstrap_data, state_id_var)
   
   if(nrow(boot_data) == 0) {
     return(NULL)
   }
-
+  
   # Check if required columns exist
   missing_vars <- setdiff(model_vars, names(boot_data))
   if(length(missing_vars) > 0) {
     return(NULL)
   }
   
-  # Check if n_cases and population exist
+  # Check if dengue_inc and population exist
   if(!"n_cases" %in% names(boot_data) || !"population" %in% names(boot_data)) {
     return(NULL)
   }
@@ -213,15 +302,19 @@ boot_fit_model_rsq_presampled <- function(df_full, # full dataset
     model <- fixest::fepois(model_formula,
                             offset = ~log_pop_offset,
                             data = boot_data,
-                            nthreads = 2)
+                            nthreads = 1)  # Changed to single thread
 
     # Calculate R-squared using fixest's r2 function
     r_squared <- r2(model, type = "cor2")
     pseudo_r_squared <- r2(model, type = "pr2")  # Pseudo R-squared
     
+    # Calculate AIC - fixest has built-in AIC function
+    model_aic <- AIC(model)
+    
     return(data.frame(
       r_squared = r_squared,
       pseudo_r_squared = pseudo_r_squared,
+      aic = model_aic,
       n_obs = model$nobs,
       bootstrap_iteration = bootstrap_iter
     ))
@@ -229,11 +322,6 @@ boot_fit_model_rsq_presampled <- function(df_full, # full dataset
     return(NULL)
   })
 }
-
-# Set up parallel processing
-n_cores <- parallel::detectCores() - 1
-cl <- makeCluster(n_cores)
-registerDoParallel(cl)
 
 # Get number of bootstrap iterations from the loaded data
 n_boot <- max(bootstrap_states$bootstrap_iteration)
@@ -253,25 +341,24 @@ for(model_name in names(models_with_temp)) {
     cat("Variables:", paste(model_vars, collapse = ", "), "\n")
     cat("Starting", n_boot, "bootstrap iterations using pre-sampled states...\n")
     
-    # Run block bootstrap for this model using pre-sampled states
-    list_boot <- foreach(i = 1:n_boot,
-                         .packages = c("tidyverse", "magrittr", "fixest"),
-                         .export = c("bootstrap_states"),
-                         .errorhandling = "remove") %dopar% {
-      
-      tryCatch({
+    # Run block bootstrap for this model using pre-sampled states - SEQUENTIAL VERSION
+    list_boot <- list()
+    for(i in 1:n_boot) {
+      result <- tryCatch({
         boot_fit_model_rsq_presampled(df_full = dengue_temp,
                                       bootstrap_iter = i,
                                       bootstrap_data = bootstrap_states,
                                       model_vars = model_vars,
                                       state_id_var = "state_residency")
       }, error = function(e) {
+        cat("Error in iteration", i, ":", e$message, "\n")
         return(NULL)
       })
+      
+      if(!is.null(result)) {
+        list_boot[[length(list_boot) + 1]] <- result
+      }
     }
-    
-    # Remove NULL results (failed iterations)
-    list_boot <- list_boot[!sapply(list_boot, is.null)]
     
     cat("Successful bootstrap iterations:", length(list_boot), "\n")
     
@@ -285,11 +372,11 @@ for(model_name in names(models_with_temp)) {
       
       # Save individual model results
       write_csv(boot_results,
-                paste0(model_name, "_rsquared_state_blockboot_presampled", n_boot, ".csv"))
+                paste0(model_name, "_rsquared_aic_state_blockboot_presampled", n_boot, ".csv"))
       
-      # Calculate bootstrap statistics
+      # Calculate bootstrap statistics (now including AIC)
       boot_summary <- boot_results %>%
-        select(r_squared, pseudo_r_squared, n_obs) %>%
+        select(r_squared, pseudo_r_squared, aic, n_obs) %>%
         summarise(
           r_squared_mean = mean(r_squared, na.rm = TRUE),
           r_squared_sd = sd(r_squared, na.rm = TRUE),
@@ -299,6 +386,10 @@ for(model_name in names(models_with_temp)) {
           pseudo_r_squared_sd = sd(pseudo_r_squared, na.rm = TRUE),
           pseudo_r_squared_q025 = quantile(pseudo_r_squared, 0.025, na.rm = TRUE),
           pseudo_r_squared_q975 = quantile(pseudo_r_squared, 0.975, na.rm = TRUE),
+          aic_mean = mean(aic, na.rm = TRUE),
+          aic_sd = sd(aic, na.rm = TRUE),
+          aic_q025 = quantile(aic, 0.025, na.rm = TRUE),
+          aic_q975 = quantile(aic, 0.975, na.rm = TRUE),
           mean_n_obs = mean(n_obs, na.rm = TRUE),
           n_valid_iterations = sum(!is.na(r_squared))
         ) %>%
@@ -306,11 +397,12 @@ for(model_name in names(models_with_temp)) {
       
       # Save summary
       write_csv(boot_summary,
-                paste0(model_name, "_rsquared_state_blockboot_presampled_summary", n_boot, ".csv"))
+                paste0(model_name, "_rsquared_aic_state_blockboot_presampled_summary", n_boot, ".csv"))
       
       cat("Bootstrap completed for", model_name, "\n")
       cat("Mean R-squared:", round(boot_summary$r_squared_mean, 4), "\n")
       cat("Mean Pseudo R-squared:", round(boot_summary$pseudo_r_squared_mean, 4), "\n")
+      cat("Mean AIC:", round(boot_summary$aic_mean, 2), "\n")
     } else {
       cat("All bootstrap iterations failed for", model_name, "\n")
     }
@@ -320,9 +412,6 @@ for(model_name in names(models_with_temp)) {
   })
 }
 
-# Stop parallel processing
-stopCluster(cl)
-
 cat("\n=== BOOTSTRAP SUMMARY ===\n")
 cat("Models processed:", length(all_bootstrap_results), "\n")
 cat("Models with successful bootstrap:", sum(sapply(all_bootstrap_results, function(x) nrow(x) > 0)), "\n")
@@ -330,8 +419,8 @@ cat("Models with successful bootstrap:", sum(sapply(all_bootstrap_results, funct
 # Combine all bootstrap results
 if(length(all_bootstrap_results) > 0) {
   combined_bootstrap <- do.call("bind_rows", all_bootstrap_results)
-  write_csv(combined_bootstrap, paste0("data/all_models_bootstrap_rsquared_presampled", n_boot, ".csv"))
-  cat("Combined bootstrap R-squared results saved to: data/all_models_bootstrap_rsquared_presampled", n_boot, ".csv\n")
+  write_csv(combined_bootstrap, paste0("all_models_bootstrap_rsquared_aic_presampled", n_boot, ".csv"))
+  cat("Combined bootstrap R-squared and AIC results saved to: all_models_bootstrap_rsquared_aic_presampled", n_boot, ".csv\n")
 }
 
-cat("\nBootstrap R-squared analysis with pre-sampled states completed!\n")
+cat("\nBootstrap R-squared and AIC analysis with pre-sampled states completed!\n")
