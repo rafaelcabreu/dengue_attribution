@@ -18,8 +18,8 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths
 # ---------------------------------------------------------------
-data_path  <- "../../model_input_mexico_immunity_city.csv"
-output_dir <- "./statistics/full_model_fits"
+data_path  <- "data/model_input_mexico_immunity_city.csv"
+output_dir <- "data/statistics/full_model_fits"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # ---------------------------------------------------------------

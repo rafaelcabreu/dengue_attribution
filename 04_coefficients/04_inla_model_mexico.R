@@ -26,7 +26,7 @@ strategies <- list(
 
 # ── Load and prepare data ──────────────────────────────────────────────────────
 cat("Loading data...\n")
-dengue_temp <- read_csv("../../model_input_mexico_immunity_city.csv",
+dengue_temp <- read_csv("data/model_input_mexico_immunity_city.csv",
                         show_col_types = FALSE)
 
 # ── B-spline basis functions ───────────────────────────────────────────────────

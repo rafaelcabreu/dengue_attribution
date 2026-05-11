@@ -1,0 +1,14 @@
+services:
+  jupyter:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/project
+    command: >
+      python3 -m jupyter lab
+      --ip=0.0.0.0
+      --no-browser
+      --allow-root
+      --NotebookApp.token=''
+      --NotebookApp.password=''

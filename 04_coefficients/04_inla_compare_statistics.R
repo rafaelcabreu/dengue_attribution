@@ -268,7 +268,7 @@ if (length(temp_coef_names) == 0) {
 }
 
 # ── Load data ──────────────────────────────────────────────────────────────────
-dengue_temp <- read_csv("../../model_input_brazil_immunity_city_with_priorinf.csv",
+dengue_temp <- read_csv("data/model_input_brazil_immunity_city_with_priorinf.csv",
                         show_col_types = FALSE)
 
 # ── B-spline basis functions ───────────────────────────────────────────────────

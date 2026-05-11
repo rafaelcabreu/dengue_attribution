@@ -51,8 +51,8 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths and settings
 # ---------------------------------------------------------------
-data_path  <- "../../model_input_brazil_immunity_city_with_priorinf.csv"
-output_dir <- "/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/coefficients/bootstrap_chunks"
+data_path  <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
+output_dir <- "data/coefficients/bootstrap_chunks"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # ---------------------------------------------------------------

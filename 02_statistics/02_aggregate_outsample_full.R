@@ -6,7 +6,7 @@
 library(tidyverse)
 
 args        <- commandArgs(trailingOnly = TRUE)
-results_dir <- if (length(args) >= 1) args[1] else "results/dengue_validation"
+results_dir <- if (length(args) >= 1) args[1] else "data/results/dengue_validation"
 
 cat("Reading results from:", results_dir, "\n")
 

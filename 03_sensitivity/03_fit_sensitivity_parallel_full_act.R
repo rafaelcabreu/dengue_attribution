@@ -44,10 +44,10 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths and settings
 # ---------------------------------------------------------------
-data_path      <- "../../model_input_brazil_immunity_city_with_priorinf.csv"
-bootstrap_path <- "../../paper/bootstrap_state_samples.csv"
-ensemble_dir   <- "~/cpdn_nonnerc/aaim/dengue/predict-all"
-output_dir     <- "~/cpdn_nonnerc/aaim/dengue/sensitivity-act/bootstrap_chunks"
+data_path      <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
+bootstrap_path <- "data/bootstrap_state_samples.csv"
+ensemble_dir   <- "data/predict-all"
+output_dir     <- "data/sensitivity-act/bootstrap_chunks"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 tlimit    <- 12

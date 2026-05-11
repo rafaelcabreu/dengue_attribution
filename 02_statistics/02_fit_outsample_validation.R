@@ -20,7 +20,7 @@ library(fixest)
 library(splines)
 
 # Load and prepare initial data
-dengue_temp <- read_csv("../../model_input_brazil_immunity_city_with_priorinf.csv")
+dengue_temp <- read_csv("data/model_input_brazil_immunity_city_with_priorinf.csv")
 dengue_temp$log_pop_offset <- log(dengue_temp$population / 100000)
 dengue_temp$date_first_symptoms <- as.Date(dengue_temp$date_first_symptoms)
 

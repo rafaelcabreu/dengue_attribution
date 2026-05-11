@@ -7,7 +7,7 @@
 
 library(tidyverse)
 
-output_dir  <- "~/cpdn_nonnerc/aaim/dengue/sensitivity-nat"
+output_dir  <- "data/sensitivity-nat"
 chunks_dir  <- file.path(output_dir, "bootstrap_chunks")
 n_bootstrap <- 100
 n_ensemble  <- 525   # ensemble members 0:524

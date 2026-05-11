@@ -48,10 +48,10 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths and settings
 # ---------------------------------------------------------------
-data_path      <- "../../model_input_brazil_immunity_city_with_priorinf.csv"
-bootstrap_path <- "../../paper/bootstrap_state_samples.csv"
+data_path      <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
+bootstrap_path <- "data/bootstrap_state_samples.csv"
 #output_dir     <- "~/cpdn_nonnerc/aaim/dengue/statistics/bootstrap_chunks_rsq"
-output_dir     <- "./statistics/bootstrap_chunks_rsq"
+output_dir     <- "data/statistics/bootstrap_chunks_rsq"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # ---------------------------------------------------------------

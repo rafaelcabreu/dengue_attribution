@@ -14,8 +14,8 @@ library(tidyverse)
 library(fixest)
 library(splines)
 
-data_path   <- "../../model_input_brazil_immunity_city_with_priorinf.csv"
-chunks_dir  <- "/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/coefficients/bootstrap_chunks"
+data_path   <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
+chunks_dir  <- "data/coefficients/bootstrap_chunks"
 n_chunks    <- 10
 chunk_size  <- 100
 n_boot      <- n_chunks * chunk_size   # 1000
@@ -665,7 +665,7 @@ for (model_idx in 1:n_models) {
 
   # Save combined bootstrap coefficients — same filename as original serial script
   write_csv(boot_results,
-            paste0('/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/coefficients/', model_name, "_coef_state_blockboot", n_boot, ".csv"))
+            paste0('data/coefficients/', model_name, "_coef_state_blockboot", n_boot, ".csv"))
 
   # Bootstrap summary statistics
   boot_summary <- boot_results %>%
@@ -679,7 +679,7 @@ for (model_idx in 1:n_models) {
     mutate(model_name = model_name)
 
   write_csv(boot_summary,
-            paste0('/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/coefficients/', model_name, "_coef_state_blockboot_summary", n_boot, ".csv"))
+            paste0('data/coefficients/', model_name, "_coef_state_blockboot_summary", n_boot, ".csv"))
 
   all_bootstrap_results[[model_name]] <- boot_results
 
