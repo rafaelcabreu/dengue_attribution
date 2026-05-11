@@ -1,6 +1,6 @@
 # Dengue Attribution
 
-Analysis pipeline for attributing dengue fever incidence in Brazil, Mexico, and Peru to anthropogenic climate change. The pipeline fits a suite of Poisson GLMs with B-spline temperature responses, runs a parallelised bootstrap for uncertainty quantification, and produces publication figures.
+Analysis pipeline for attributing dengue fever incidence in Brazil to anthropogenic climate change. The pipeline fits a suite of Poisson GLMs with B-spline temperature responses, runs a parallelised bootstrap for uncertainty quantification, and produces publication figures.
 
 Code repository: [http://github.com/rafaelcabreu/dengue_attribution](http://github.com/rafaelcabreu/dengue_attribution)
 
