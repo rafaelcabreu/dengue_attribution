@@ -29,7 +29,8 @@ models_with_temp <- list(
   # 'Climate(lag 1-5) + PriorCases',
   # 'Climate(lag 1-5) + SeroRepla',
   # 'Climate(lag 1-5) + Immunity',
-  # 'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity'
+  # 'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity',
+  # 'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio'
 )
 n_models <- length(models_with_temp)
 

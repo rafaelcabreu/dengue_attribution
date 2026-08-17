@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=dengue_rsq_aic_boot
-#SBATCH --array=201-210                 # n_models(20) * n_chunks(10) = 200 tasks
+#SBATCH --array=221-230                 # model 23 (newly added) x n_chunks(10) = tasks 221-230
 #                                       # tasks 1-10   -> model 1, chunks 1-10
 #                                       # tasks 11-20  -> model 2, chunks 1-10
 #                                       # ...
-#                                       # tasks 61-70  -> model 7, chunks 1-10
+#                                       # tasks 221-230 -> model 23, chunks 1-10
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1               # single-threaded per task; parallelism from the array
 #SBATCH --mem=16G                       # adjust if ensemble files are large

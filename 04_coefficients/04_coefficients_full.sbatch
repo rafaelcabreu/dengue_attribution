@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=dengue_coef_boot
-#SBATCH --array=1-180                   # n_models(16) * n_chunks(10) = 160 tasks
+#SBATCH --array=181-190                 # model 19 (newly added) x n_chunks(10) = tasks 181-190
 #                                       # tasks 1-10    -> model 1,  chunks 1-10
 #                                       # tasks 11-20   -> model 2,  chunks 1-10
 #                                       # ...
-#                                       # tasks 151-160 -> model 16, chunks 1-10
+#                                       # tasks 181-190 -> model 19, chunks 1-10
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1               # single-threaded; parallelism from the array
 #SBATCH --mem=16G                        # coefficient bootstrap is lighter than ensemble prediction

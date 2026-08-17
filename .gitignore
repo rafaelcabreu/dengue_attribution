@@ -1,3 +1,8 @@
 data/
 img/
 utils/
+
+.DS_Store
+
+.ipynb_checkpoints
+utils.zip
