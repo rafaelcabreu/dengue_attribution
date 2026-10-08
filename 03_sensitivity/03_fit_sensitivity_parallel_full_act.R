@@ -44,10 +44,10 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths and settings
 # ---------------------------------------------------------------
-data_path      <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
-bootstrap_path <- "data/bootstrap_state_samples.csv"
-ensemble_dir   <- "data/predict-all"
-output_dir     <- "data/sensitivity-act/bootstrap_chunks"
+data_path      <- "../data/model_input_brazil_immunity_city_with_priorinf.csv"
+bootstrap_path <- "../data/bootstrap_state_samples.csv"
+ensemble_dir   <- "/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/predict-all"
+output_dir     <- "/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/sensitivity-act/bootstrap_chunks"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 tlimit    <- 12
@@ -347,7 +347,7 @@ models_with_temp <- list(
     'year_region',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -384,7 +384,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -507,7 +507,7 @@ models_with_temp <- list(
     'total_precipitation_lag5',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -544,7 +544,42 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
+  ),
+  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio' = c(
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'temp_bs_lag41',
+    'temp_bs_lag42',
+    'temp_bs_lag43',
+    'temp_bs_lag44',
+    'temp_bs_lag51',
+    'temp_bs_lag52',
+    'temp_bs_lag53',
+    'temp_bs_lag54',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'total_precipitation_lag4',
+    'total_precipitation_lag5',
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births'
   ),
   'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio' = c(
     'temp_bs_lag11','temp_bs_lag12','temp_bs_lag13','temp_bs_lag14',
@@ -576,6 +611,31 @@ cat("Model:", model_name, "\n\n")
 # ---------------------------------------------------------------
 dengue_temp <- read_csv(data_path, show_col_types = FALSE)
 dengue_temp$log_pop_offset <- log(dengue_temp$population / 100000)
+
+# ── Municipality-level posterior immunity draws ─────────────────────────────────
+# Replace the old macro-region-level Pr_0priorinf / Pr_1priorinf with
+# municipality-level (city_residency x year) values that carry posterior
+# uncertainty — see 01_model_fit/build_immunity_city_draws.R. This task's
+# bootstrap_idx is paired with immunity draw sample_id (cycling through
+# n_immunity_samples), and that same draw is held fixed across every ensemble
+# member below — immunity isn't part of the climate counterfactual, only the
+# state resampling and the immunity draw vary together per bootstrap_idx.
+city_health_region <- read_csv("../data/code_health_region_to_city_residency.csv", show_col_types = FALSE)
+
+dengue_temp <- dengue_temp %>%
+  select(-any_of(c("Pr_0priorinf", "Pr_1priorinf"))) %>%
+  left_join(city_health_region, by = "city_residency")
+
+immunity_draws_sampled <- read_csv("../data/immunity_draws_sampled1000.csv", show_col_types = FALSE)
+n_immunity_samples      <- max(immunity_draws_sampled$sample_id)
+this_sample_id          <- ((bootstrap_idx - 1) %% n_immunity_samples) + 1
+
+immunity_this_draw <- immunity_draws_sampled %>%
+  filter(sample_id == this_sample_id) %>%
+  select(code_health_region, year, Pr_0priorinf, Pr_1priorinf, Pr_2priorinf)
+
+dengue_temp <- dengue_temp %>%
+  left_join(immunity_this_draw, by = c("code_health_region", "year"))
 
 bootstrap_states <- read_csv2(bootstrap_path, show_col_types = FALSE) %>%
   mutate(states_list = map(resampled_states, ~str_split(.x, ",")[[1]]))
@@ -679,7 +739,15 @@ for(ensemble_idx in seq_along(file_list)) {
     new_data <- read_csv(file_path, show_col_types = FALSE)
     new_data$log_pop_offset <- log(new_data$population / 100000)
     new_data <- add_spline_columns(new_data)
-    
+
+    # Same fixed immunity draw as the training data (this_sample_id) — only
+    # climate is counterfactual across ensemble members, immunity is held
+    # at the observed posterior draw for this bootstrap_idx.
+    new_data <- new_data %>%
+      select(-any_of(c("Pr_0priorinf", "Pr_1priorinf"))) %>%
+      left_join(city_health_region, by = "city_residency") %>%
+      left_join(immunity_this_draw, by = c("code_health_region", "year"))
+
     new_data <- new_data %>%
       left_join(ensemble_bootstrap_ids,
                 by = "state_residency",

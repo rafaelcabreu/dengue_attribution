@@ -5,7 +5,7 @@
 #SBATCH --mem=16G
 #SBATCH --partition=standard
 #SBATCH --qos=long
-#SBATCH --array=84-87   # model 22 (newly added), 4 chunks of 25 iterations (0-indexed)
+#SBATCH --array=1-91   # model 22 (newly added), 4 chunks of 25 iterations (0-indexed)
 
 # ── Directory configuration ───────────────────────────────────────────────────
 LOG_DIR="/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/outsample-statistics/logs"

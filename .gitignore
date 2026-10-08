@@ -6,3 +6,8 @@ utils/
 
 .ipynb_checkpoints
 utils.zip
+
+
+*.out
+*.csv
+**/logs

@@ -40,8 +40,8 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths and settings
 # ---------------------------------------------------------------
-data_path  <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
-output_dir <- "data/coefficients/bootstrap_by_year"
+data_path  <- "../data/model_input_brazil_immunity_city_with_priorinf.csv"
+output_dir <- "../data/coefficients/bootstrap_by_year"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # ---------------------------------------------------------------
@@ -60,7 +60,7 @@ model_vars <- c(
   'immunity_lag1', 'immunity_lag2', 'immunity_lag3',
   'serotype_replacement',
   'urban_area_ha', 'gdp_per_capita', 'births',
-  'Pr_0priorinf', 'Pr_1priorinf',
+  'Pr_0priorinf', 'Pr_1priorinf', 'Pr_2priorinf',
   'year_region', 'month_region'
 )
 
@@ -69,6 +69,21 @@ model_vars <- c(
 # ---------------------------------------------------------------
 dengue_temp <- read_csv(data_path, show_col_types = FALSE)
 dengue_temp$log_pop_offset <- log(dengue_temp$population / 100000)
+
+# ── Municipality-level posterior immunity draws ─────────────────────────────────
+# Replace the old macro-region-level Pr_0priorinf / Pr_1priorinf with
+# municipality-level (city_residency x year) values that carry posterior
+# uncertainty — see 01_model_fit/build_immunity_city_draws.R. Each bootstrap
+# iteration below is paired with one posterior draw (cycling through
+# n_immunity_samples), same pairing scheme as the other coefficient bootstrap.
+city_health_region <- read_csv("../data/code_health_region_to_city_residency.csv", show_col_types = FALSE)
+
+dengue_temp <- dengue_temp %>%
+  select(-any_of(c("Pr_0priorinf", "Pr_1priorinf"))) %>%
+  left_join(city_health_region, by = "city_residency")
+
+immunity_draws_sampled <- read_csv("../data/immunity_draws_sampled1000.csv", show_col_types = FALSE)
+n_immunity_samples      <- max(immunity_draws_sampled$sample_id)
 
 # Fit splines on FULL data so knots are consistent across all year-tasks
 temp_bs_fitted_lag1 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag1, df = 4)
@@ -170,8 +185,22 @@ build_formula <- function(vars) {
 
 boot_fit_model <- function(df_ids, df_full, model_vars,
                            state_id_var = "state_residency",
-                           seed = 1234) {
-  boot_data     <- boot_strat_newID(df_ids, df_full, state_id_var, seed)
+                           seed = 1234,
+                           immunity_data = NULL, n_immunity_samples = NULL) {
+  boot_data <- boot_strat_newID(df_ids, df_full, state_id_var, seed)
+
+  # Pair this bootstrap iteration (seed = iteration index) with one posterior
+  # immunity draw, cycling through n_immunity_samples.
+  if (!is.null(immunity_data)) {
+    this_sample_id <- ((seed - 1) %% n_immunity_samples) + 1
+    boot_data <- boot_data %>%
+      left_join(
+        immunity_data %>% filter(sample_id == this_sample_id) %>%
+          select(code_health_region, year, Pr_0priorinf, Pr_1priorinf, Pr_2priorinf),
+        by = c("code_health_region", "year")
+      )
+  }
+
   model_formula <- build_formula(model_vars)
   model <- fixest::fepois(model_formula,
                           offset   = ~log_pop_offset,
@@ -197,11 +226,13 @@ for (i in seq_len(n_boot)) {
   if (i %% 100 == 0) cat(sprintf("  Iteration %d / %d\n", i, n_boot))
 
   result <- tryCatch({
-    boot_fit_model(df_ids       = df_states_year,
-                   df_full      = dengue_year,
-                   model_vars   = model_vars,
-                   state_id_var = "state_residency",
-                   seed         = i)   # seed = iteration index for reproducibility
+    boot_fit_model(df_ids             = df_states_year,
+                   df_full             = dengue_year,
+                   model_vars          = model_vars,
+                   state_id_var        = "state_residency",
+                   seed                = i,   # seed = iteration index for reproducibility
+                   immunity_data       = immunity_draws_sampled,
+                   n_immunity_samples  = n_immunity_samples)
   }, error = function(e) {
     cat(sprintf("  Error in iteration %d: %s\n", i, e$message))
     NULL

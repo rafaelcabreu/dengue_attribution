@@ -14,8 +14,8 @@
 
 library(tidyverse)
 
-output_dir <- "data/statistics"
-chunks_dir <- "data/statistics/bootstrap_chunks_regional_incidence"
+output_dir <- "../data/statistics"
+chunks_dir <- "../data/statistics/bootstrap_chunks_regional_incidence"
 n_chunks   <- 10
 chunk_size <- 100
 n_boot     <- n_chunks * chunk_size   # 1000

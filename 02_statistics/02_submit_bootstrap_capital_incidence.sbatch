@@ -31,5 +31,5 @@ module load jasr                        # Jasmin R module; check available versi
 # internally (single model, so task_id == chunk_idx directly).
 # ---------------------------------------------------------------
 echo "Starting task: $SLURM_ARRAY_TASK_ID"
-Rscript 02_statistics/02_bootstrap_capital_incidence.R $SLURM_ARRAY_TASK_ID
+Rscript 02_bootstrap_capital_incidence.R $SLURM_ARRAY_TASK_ID
 echo "Finished task: $SLURM_ARRAY_TASK_ID"

@@ -62,9 +62,9 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths
 # ---------------------------------------------------------------
-data_path      <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
-bootstrap_path <- "data/bootstrap_state_samples.csv"
-output_dir     <- "data/statistics/bootstrap_chunks_capital_incidence"
+data_path      <- "../data/model_input_brazil_immunity_city_with_priorinf.csv"
+bootstrap_path <- "../data/bootstrap_state_samples.csv"
+output_dir     <- "../data/statistics/bootstrap_chunks_capital_incidence"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # ---------------------------------------------------------------
@@ -84,7 +84,7 @@ model_vars <- c(
   'immunity_lag1', 'immunity_lag2', 'immunity_lag3',
   'serotype_replacement',
   'urban_area_ha', 'gdp_per_capita', 'births',
-  'Pr_0priorinf', 'Pr_1priorinf',
+  'Pr_0priorinf', 'Pr_1priorinf', 'Pr_2priorinf',
   'year_region', 'month_region'
 )
 
@@ -98,6 +98,21 @@ cat("Model:", model_name, "\n\n")
 # ---------------------------------------------------------------
 dengue_temp <- read_csv(data_path, show_col_types = FALSE)
 dengue_temp$log_pop_offset <- log(dengue_temp$population / 100000)
+
+# ── Municipality-level posterior immunity draws ─────────────────────────────────
+# Replace the old macro-region-level Pr_0priorinf / Pr_1priorinf with
+# municipality-level (city_residency x year) values that carry posterior
+# uncertainty — see 01_model_fit/build_immunity_city_draws.R. Each bootstrap
+# iteration below is paired with one posterior draw (cycling through
+# n_immunity_samples), the same pairing scheme used in the R²/AIC bootstrap.
+city_health_region <- read_csv("../data/code_health_region_to_city_residency.csv", show_col_types = FALSE)
+
+dengue_temp <- dengue_temp %>%
+  select(-any_of(c("Pr_0priorinf", "Pr_1priorinf"))) %>%
+  left_join(city_health_region, by = "city_residency")
+
+immunity_draws_sampled <- read_csv("../data/immunity_draws_sampled1000.csv", show_col_types = FALSE)
+n_immunity_samples      <- max(immunity_draws_sampled$sample_id)
 
 temp_bs_fitted_lag1 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag1, df = 4)
 temp_bs_fitted_lag2 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag2, df = 4)
@@ -190,11 +205,26 @@ build_formula <- function(vars) {
 # itself is still fit on the full resampled national data.
 boot_fit_capital_incidence <- function(df_full, bootstrap_iter, bootstrap_data,
                                        model_vars, model_formula, target_cities,
-                                       state_id_var = "state_residency") {
+                                       state_id_var = "state_residency",
+                                       immunity_data = NULL, n_immunity_samples = NULL) {
   boot_data <- boot_strat_presampled(df_full, bootstrap_iter,
                                      bootstrap_data, state_id_var)
 
   if (nrow(boot_data) == 0)                                  return(NULL)
+
+  # Pair this bootstrap iteration with one posterior immunity draw (cycling
+  # through the n_immunity_samples available), so state-resampling and
+  # immunity uncertainty vary together across the same set of iterations.
+  if (!is.null(immunity_data)) {
+    this_sample_id <- ((bootstrap_iter - 1) %% n_immunity_samples) + 1
+    boot_data <- boot_data %>%
+      left_join(
+        immunity_data %>% filter(sample_id == this_sample_id) %>%
+          select(code_health_region, year, Pr_0priorinf, Pr_1priorinf, Pr_2priorinf),
+        by = c("code_health_region", "year")
+      )
+  }
+
   if (length(setdiff(model_vars, names(boot_data))) > 0)     return(NULL)
   if (!"n_cases"     %in% names(boot_data))                  return(NULL)
   if (!"population"  %in% names(boot_data))                  return(NULL)
@@ -246,13 +276,15 @@ for (i in boot_start:boot_end) {
   }
 
   result <- tryCatch({
-    boot_fit_capital_incidence(df_full        = dengue_temp,
-                               bootstrap_iter = i,
-                               bootstrap_data = bootstrap_states,
-                               model_vars     = model_vars,
-                               model_formula  = model_formula,
-                               target_cities  = target_cities,
-                               state_id_var   = "state_residency")
+    boot_fit_capital_incidence(df_full             = dengue_temp,
+                               bootstrap_iter       = i,
+                               bootstrap_data       = bootstrap_states,
+                               model_vars           = model_vars,
+                               model_formula        = model_formula,
+                               target_cities        = target_cities,
+                               state_id_var         = "state_residency",
+                               immunity_data        = immunity_draws_sampled,
+                               n_immunity_samples    = n_immunity_samples)
   }, error = function(e) {
     cat("  Error in iteration", i, ":", e$message, "\n")
     NULL

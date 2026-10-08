@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=dengue_coef_boot
-#SBATCH --array=181-190                 # model 19 (newly added) x n_chunks(10) = tasks 181-190
+#SBATCH --array=1-200                   # model 19 (newly added) x n_chunks(10) = tasks 181-190
 #                                       # tasks 1-10    -> model 1,  chunks 1-10
 #                                       # tasks 11-20   -> model 2,  chunks 1-10
 #                                       # ...
@@ -8,7 +8,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1               # single-threaded; parallelism from the array
 #SBATCH --mem=16G                        # coefficient bootstrap is lighter than ensemble prediction
-#SBATCH --time=06:00:00                 # 100 bootstrap fits per task; adjust to your runtime
+#SBATCH --time=12:00:00                 # 100 bootstrap fits per task; adjust to your runtime
 #SBATCH --output=/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/coefficients/logs/coef_boot_%A_%a.out
 #SBATCH --error=/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/coefficients/logs/coef_boot_%A_%a.err
 #SBATCH --partition=short-serial        # Jasmin partition — change to lotus/high-mem if needed
@@ -31,5 +31,5 @@ module load jasr                        # Jasmin R module; check available versi
 # (model_idx, chunk_idx) internally.
 # ---------------------------------------------------------------
 echo "Starting task: $SLURM_ARRAY_TASK_ID"
-Rscript coefficients_full.R $SLURM_ARRAY_TASK_ID
+Rscript 04_coefficients_full.R $SLURM_ARRAY_TASK_ID
 echo "Finished task: $SLURM_ARRAY_TASK_ID"

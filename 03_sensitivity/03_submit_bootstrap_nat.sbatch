@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=dengue_bootstrap
-#SBATCH --array=1701-1800               # model 18 (newly added), bootstraps 1-100 (tasks 1-1700 for models 1-17 already run)
+#SBATCH --array=1-1900               # model 18 (newly added), bootstraps 1-100 (tasks 1-1700 for models 1-17 already run)
 #                                       # tasks 1-100   -> model 1, bootstraps 1-100
 #                                       # tasks 101-200 -> model 2, bootstraps 1-100
 #SBATCH --ntasks=1

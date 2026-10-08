@@ -48,10 +48,10 @@ library(splines)
 # ---------------------------------------------------------------
 # 2. Paths and settings
 # ---------------------------------------------------------------
-data_path      <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
-bootstrap_path <- "data/bootstrap_state_samples.csv"
+data_path      <- "../data/model_input_brazil_immunity_city_with_priorinf.csv"
+bootstrap_path <- "../data/bootstrap_state_samples.csv"
 #output_dir     <- "~/cpdn_nonnerc/aaim/dengue/statistics/bootstrap_chunks_rsq"
-output_dir     <- "data/statistics/bootstrap_chunks_rsq"
+output_dir     <- "../data/statistics/bootstrap_chunks_rsq"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # ---------------------------------------------------------------
@@ -79,7 +79,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -373,7 +373,7 @@ models_with_temp <- list(
     'year_region',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -410,7 +410,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -533,7 +533,7 @@ models_with_temp <- list(
     'total_precipitation_lag5',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -570,7 +570,42 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
+  ),
+  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio' = c(
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'temp_bs_lag41',
+    'temp_bs_lag42',
+    'temp_bs_lag43',
+    'temp_bs_lag44',
+    'temp_bs_lag51',
+    'temp_bs_lag52',
+    'temp_bs_lag53',
+    'temp_bs_lag54',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'total_precipitation_lag4',
+    'total_precipitation_lag5',
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births'
   ),
   'Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
     'month_region',
@@ -583,7 +618,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Year|region + Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
     'city_residency',
@@ -595,7 +630,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -652,6 +687,20 @@ cat("Model:", model_name, "\n\n")
 # ---------------------------------------------------------------
 dengue_temp <- read_csv(data_path, show_col_types = FALSE)
 dengue_temp$log_pop_offset <- log(dengue_temp$population / 100000)
+
+# ---------------------------------------------------------------
+# 4b. Attach code_health_region (for joining posterior immunity draws) and
+#     drop the old macro-region-level Pr_0priorinf / Pr_1priorinf — these are
+#     replaced per-iteration below with a municipality-level posterior draw.
+# ---------------------------------------------------------------
+city_health_region <- read_csv("../data/code_health_region_to_city_residency.csv", show_col_types = FALSE)
+
+dengue_temp <- dengue_temp %>%
+  select(-any_of(c("Pr_0priorinf", "Pr_1priorinf"))) %>%
+  left_join(city_health_region, by = "city_residency")
+
+immunity_draws_sampled <- read_csv("../data/immunity_draws_sampled1000.csv", show_col_types = FALSE)
+n_immunity_samples      <- max(immunity_draws_sampled$sample_id)
 
 # Fit B-splines on full data (consistent knots across all tasks)
 temp_bs_fitted_lag1 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag1, df = 4)
@@ -742,11 +791,26 @@ build_formula <- function(vars) {
 
 boot_fit_model_rsq <- function(df_full, bootstrap_iter, bootstrap_data,
                                model_vars, model_formula,
-                               state_id_var = "state_residency") {
+                               state_id_var = "state_residency",
+                               immunity_data = NULL, n_immunity_samples = NULL) {
   boot_data <- boot_strat_presampled(df_full, bootstrap_iter,
                                      bootstrap_data, state_id_var)
 
   if (nrow(boot_data) == 0)                                  return(NULL)
+
+  # Pair this bootstrap iteration with one posterior immunity draw (cycling
+  # through the n_immunity_samples available), so state-resampling and
+  # immunity uncertainty vary together across the same set of iterations.
+  if (!is.null(immunity_data)) {
+    this_sample_id <- ((bootstrap_iter - 1) %% n_immunity_samples) + 1
+    boot_data <- boot_data %>%
+      left_join(
+        immunity_data %>% filter(sample_id == this_sample_id) %>%
+          select(code_health_region, year, Pr_0priorinf, Pr_1priorinf, Pr_2priorinf),
+        by = c("code_health_region", "year")
+      )
+  }
+
   if (length(setdiff(model_vars, names(boot_data))) > 0)     return(NULL)
   if (!"n_cases"     %in% names(boot_data))                  return(NULL)
   if (!"population"  %in% names(boot_data))                  return(NULL)
@@ -782,12 +846,14 @@ for (i in boot_start:boot_end) {
   }
 
   result <- tryCatch({
-    boot_fit_model_rsq(df_full        = dengue_temp,
-                       bootstrap_iter = i,
-                       bootstrap_data = bootstrap_states,
-                       model_vars     = model_vars,
-                       model_formula  = model_formula,
-                       state_id_var   = "state_residency")
+    boot_fit_model_rsq(df_full             = dengue_temp,
+                       bootstrap_iter       = i,
+                       bootstrap_data       = bootstrap_states,
+                       model_vars           = model_vars,
+                       model_formula        = model_formula,
+                       state_id_var         = "state_residency",
+                       immunity_data        = immunity_draws_sampled,
+                       n_immunity_samples   = n_immunity_samples)
   }, error = function(e) {
     cat("  Error in iteration", i, ":", e$message, "\n")
     NULL
