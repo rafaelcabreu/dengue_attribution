@@ -14,8 +14,8 @@ library(tidyverse)
 library(fixest)
 library(splines)
 
-data_path   <- "data/model_input_brazil_immunity_city_with_priorinf.csv"
-chunks_dir  <- "data/coefficients/bootstrap_chunks"
+data_path   <- "../data/model_input_brazil_immunity_city_with_priorinf.csv"
+chunks_dir  <- "../data/coefficients/bootstrap_chunks"
 n_chunks    <- 10
 chunk_size  <- 100
 n_boot      <- n_chunks * chunk_size   # 1000
@@ -314,7 +314,7 @@ models_with_temp <- list(
     'year_region',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -351,7 +351,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -474,7 +474,7 @@ models_with_temp <- list(
     'total_precipitation_lag5',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -511,7 +511,42 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
+  ),
+  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio' = c(
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'temp_bs_lag41',
+    'temp_bs_lag42',
+    'temp_bs_lag43',
+    'temp_bs_lag44',
+    'temp_bs_lag51',
+    'temp_bs_lag52',
+    'temp_bs_lag53',
+    'temp_bs_lag54',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'total_precipitation_lag4',
+    'total_precipitation_lag5',
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births'
   ),
   'Climate(lag 1-5) + Year|region + Month|region (Natural Spline Prec)' = c(
     'temp_bs_lag11',
@@ -552,8 +587,46 @@ models_with_temp <- list(
     'month_region',
     'year_region',
     'city_residency'
+  ),
+  'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio' = c(
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'temp_bs_lag41',
+    'temp_bs_lag42',
+    'temp_bs_lag43',
+    'temp_bs_lag44',
+    'temp_bs_lag51',
+    'temp_bs_lag52',
+    'temp_bs_lag53',
+    'temp_bs_lag54',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'total_precipitation_lag4',
+    'total_precipitation_lag5',
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births',
+    'year_region',
+    'month_region'
   )
 )
+
 
 n_models <- length(models_with_temp)
 
@@ -665,7 +738,7 @@ for (model_idx in 1:n_models) {
 
   # Save combined bootstrap coefficients — same filename as original serial script
   write_csv(boot_results,
-            paste0('data/coefficients/', model_name, "_coef_state_blockboot", n_boot, ".csv"))
+            paste0('../data/coefficients/', model_name, "_coef_state_blockboot", n_boot, ".csv"))
 
   # Bootstrap summary statistics
   boot_summary <- boot_results %>%
@@ -679,7 +752,7 @@ for (model_idx in 1:n_models) {
     mutate(model_name = model_name)
 
   write_csv(boot_summary,
-            paste0('data/coefficients/', model_name, "_coef_state_blockboot_summary", n_boot, ".csv"))
+            paste0('../data/coefficients/', model_name, "_coef_state_blockboot_summary", n_boot, ".csv"))
 
   all_bootstrap_results[[model_name]] <- boot_results
 

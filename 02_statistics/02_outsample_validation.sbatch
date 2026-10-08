@@ -5,7 +5,7 @@
 #SBATCH --mem=16G
 #SBATCH --partition=standard
 #SBATCH --qos=long
-#SBATCH --array=80-83   # 19 models × 4 chunks of 25 iterations = 76 tasks (0-indexed)
+#SBATCH --array=1-91   # model 22 (newly added), 4 chunks of 25 iterations (0-indexed)
 
 # ── Directory configuration ───────────────────────────────────────────────────
 LOG_DIR="/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/outsample-statistics/logs"
@@ -39,6 +39,8 @@ RESULTS_DIR="/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/outsample-statistics/bootst
 #   tasks 64–67  → model 17: Climate(lag 1-5) + SeroRepla
 #   tasks 68–71  → model 18: Climate(lag 1-5) + Immunity
 #   tasks 72–75  → model 19: Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity
+#   (models 20-21 added later, undocumented here — see R script for names)
+#   tasks 84–87  → model 22: Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio
 
 CHUNKS_PER_MODEL=4
 ITERS_PER_CHUNK=25

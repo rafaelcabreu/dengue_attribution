@@ -7,7 +7,7 @@
 
 library(tidyverse)
 
-output_dir  <- "data/sensitivity-nat"
+output_dir  <- "/gws/ssde/j25a/cpdn_nonnerc/aaim/dengue/sensitivity-nat"
 chunks_dir  <- file.path(output_dir, "bootstrap_chunks")
 n_bootstrap <- 100
 n_ensemble  <- 525   # ensemble members 0:524
@@ -29,7 +29,8 @@ models_with_temp <- list(
   'Climate(lag 1-5) + PriorCases',
   'Climate(lag 1-5) + SeroRepla',
   'Climate(lag 1-5) + Immunity',
-  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity'
+  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity',
+  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio'
 )
 n_models <- length(models_with_temp)
 

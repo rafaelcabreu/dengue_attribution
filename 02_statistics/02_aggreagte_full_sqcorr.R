@@ -11,8 +11,8 @@
 
 library(tidyverse)
 
-output_dir  <- "data/statistics"
-chunks_dir <- "data/statistics/bootstrap_chunks_rsq"
+output_dir  <- "../data/statistics"
+chunks_dir <- "../data/statistics/bootstrap_chunks_rsq"
 n_chunks   <- 10
 chunk_size <- 100
 n_boot     <- n_chunks * chunk_size   # 1000
@@ -41,7 +41,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -335,7 +335,7 @@ models_with_temp <- list(
     'year_region',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -372,7 +372,7 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
     'year_region',
     'month_region'
   ),
@@ -495,7 +495,7 @@ models_with_temp <- list(
     'total_precipitation_lag5',
     'city_residency',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
   ),
   'Climate(lag 1-5) + PriorCases + SeroRepla + Socio + Immunity' = c(
     'temp_bs_lag11',
@@ -532,9 +532,71 @@ models_with_temp <- list(
     'gdp_per_capita',
     'births',
     'Pr_0priorinf',
-    'Pr_1priorinf'
+    'Pr_1priorinf', 'Pr_2priorinf'
+  ),
+  'Climate(lag 1-5) + PriorCases + SeroRepla + Socio' = c(
+    'temp_bs_lag11',
+    'temp_bs_lag12',
+    'temp_bs_lag13',
+    'temp_bs_lag14',
+    'temp_bs_lag21',
+    'temp_bs_lag22',
+    'temp_bs_lag23',
+    'temp_bs_lag24',
+    'temp_bs_lag31',
+    'temp_bs_lag32',
+    'temp_bs_lag33',
+    'temp_bs_lag34',
+    'temp_bs_lag41',
+    'temp_bs_lag42',
+    'temp_bs_lag43',
+    'temp_bs_lag44',
+    'temp_bs_lag51',
+    'temp_bs_lag52',
+    'temp_bs_lag53',
+    'temp_bs_lag54',
+    'total_precipitation_lag1',
+    'total_precipitation_lag2',
+    'total_precipitation_lag3',
+    'total_precipitation_lag4',
+    'total_precipitation_lag5',
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births'
   ),
   'Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
+    'month_region',
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births',
+    'Pr_0priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf'
+  ),
+  'Year|region + Month|region + PriorCases + SeroRepla + Socio + Immunity' = c(
+    'city_residency',
+    'immunity_lag1',
+    'immunity_lag2',
+    'immunity_lag3',
+    'serotype_replacement',
+    'urban_area_ha',
+    'gdp_per_capita',
+    'births',
+    'Pr_0priorinf',
+    'Pr_1priorinf', 'Pr_2priorinf',
+    'year_region',
+    'month_region'
+  ),
+  'Climate(lag 1-5) + Year|region + Month|region + PriorCases + SeroRepla + Socio' = c(
     'temp_bs_lag11',
     'temp_bs_lag12',
     'temp_bs_lag13',
@@ -568,11 +630,10 @@ models_with_temp <- list(
     'urban_area_ha',
     'gdp_per_capita',
     'births',
-    'Pr_0priorinf',
-    'Pr_1priorinf'
+    'year_region',
+    'month_region'
   )
 )
-
 n_models <- length(models_with_temp)
 
 # ---------------------------------------------------------------

@@ -29,7 +29,7 @@ module load jasr
 # ---------------------------------------------------------------
 echo "Starting task ${SLURM_ARRAY_TASK_ID} on $(hostname) at $(date)"
 
-Rscript fitted_year_individually.R ${SLURM_ARRAY_TASK_ID}
+Rscript 04_fitted_year_individually.R ${SLURM_ARRAY_TASK_ID}
 
 EXIT_CODE=$?
 echo "Task ${SLURM_ARRAY_TASK_ID} finished at $(date) with exit code ${EXIT_CODE}"

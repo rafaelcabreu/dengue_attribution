@@ -1,37 +1,118 @@
-# test_model06.R
-# Runs model: Climate(lag 1-5) + Year|region + Month|region
-# Temperature entered as B-spline basis (4 basis functions x 5 lags)
-# Precipitation lags 1-5
+# inla_mexico.R
+#
+# Mexico-data counterpart to 04_inla_compare_statistics.R, following the same
+# setup as the other Mexico scripts in this directory
+# (04_coefficients_full_mexico.R, 03_fit_sensitivity_parallel_mexico_act.R):
+#   Two models, both the same formula
+#   'Climate(lag 1-5) + Year|region + Month|region', differing only in which
+#   countries' rows are kept for training:
+#     task 1 -> country %in% c('Brazil', 'Mexico')
+#     task 2 -> country == 'Mexico'
+#
+# Everything else mirrors the original script exactly: same INLA formula
+# construction (temperature B-spline + precipitation as fixed effects;
+# city_residency and year_region as iid random effects; month_region as a
+# cyclic RW1 random effect), same posterior sampling of the temperature
+# B-spline and precipitation coefficients (2000 draws).
+#
+# Driven by SLURM_ARRAY_TASK_ID (1-indexed) or a command-line argument.
+# Each task writes to results/mexico_<task_id>_<model_tag>/:
+#   <task_id>_<model_tag>_fixed_effects_summary.csv
+#   <task_id>_<model_tag>_fe_samples_temp.csv
+#   <task_id>_<model_tag>_fe_samples_precip.csv
 
+# ── Packages ───────────────────────────────────────────────────────────────────
 library(tidyverse)
 library(magrittr)
 library(splines)
 library(INLA)
 
-# ── Fitting strategies (tried in order) ───────────────────────────────────────
-strategies <- list(
-  list(label        = "adaptive + grid (original)",
-       strategy     = "adaptive",
-       int.strategy = "grid",
-       num.threads  = NULL),
-  list(label        = "simplified.laplace + ccd",
-       strategy     = "simplified.laplace",
-       int.strategy = "ccd",
-       num.threads  = NULL),
-  list(label        = "simplified.laplace + ccd + single thread",
-       strategy     = "simplified.laplace",
-       int.strategy = "ccd",
-       num.threads  = 1)
+# ── Model specifications ───────────────────────────────────────────────────────
+model_formula_vars <- c(
+  'temp_bs_lag11', 'temp_bs_lag12', 'temp_bs_lag13', 'temp_bs_lag14',
+  'temp_bs_lag21', 'temp_bs_lag22', 'temp_bs_lag23', 'temp_bs_lag24',
+  'temp_bs_lag31', 'temp_bs_lag32', 'temp_bs_lag33', 'temp_bs_lag34',
+  'temp_bs_lag41', 'temp_bs_lag42', 'temp_bs_lag43', 'temp_bs_lag44',
+  'temp_bs_lag51', 'temp_bs_lag52', 'temp_bs_lag53', 'temp_bs_lag54',
+  'total_precipitation_lag1', 'total_precipitation_lag2',
+  'total_precipitation_lag3', 'total_precipitation_lag4',
+  'total_precipitation_lag5',
+  'month_region', 'year_region', 'city_residency'
 )
 
-# ── Load and prepare data ──────────────────────────────────────────────────────
-cat("Loading data...\n")
-dengue_temp <- read_csv("data/model_input_mexico_immunity_city.csv",
+models <- list(
+  'Climate(lag 1-5) + Year|region + Month|region (Brazil + Mexico)' = c('Brazil', 'Mexico'),
+  'Climate(lag 1-5) + Year|region + Month|region (Mexico only)'     = c('Mexico')
+)
+
+# ── Identify this task ─────────────────────────────────────────────────────────
+args    <- commandArgs(trailingOnly = TRUE)
+task_id <- if (length(args) >= 1) as.integer(args[1]) else
+                                  as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID"))
+if (is.na(task_id)) stop("No task ID supplied. Pass it as a command-line argument (Rscript 04_inla_mexico.R <id>) or via SLURM_ARRAY_TASK_ID.")
+
+model_names <- names(models)
+n_models    <- length(model_names)
+cat(sprintf("Total models: %d  |  Running task: %d\n", n_models, task_id))
+if (task_id < 1 || task_id > n_models) {
+  stop(sprintf("task_id %d is out of range [1, %d].", task_id, n_models))
+}
+
+model_name      <- model_names[[task_id]]
+model_countries <- models[[task_id]]
+model_vars      <- model_formula_vars
+
+model_tag <- gsub("[^A-Za-z0-9]+", "_", model_name)
+model_tag <- gsub("_+$", "", model_tag)
+
+cat(sprintf("Model %d: %s\n", task_id, model_name))
+cat("Training countries:", paste(model_countries, collapse = ", "), "\n")
+
+# ── Output directory ───────────────────────────────────────────────────────────
+out_dir <- file.path("results", sprintf("mexico_%02d_%s", task_id, model_tag))
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+# ── All possible temp B-spline column names (lags 1-5, basis 1-4) ─────────────
+all_temp_bs_names <- paste0(
+  "temp_bs_lag",
+  rep(1:5, each = 4),
+  rep(1:4, times = 5)
+)
+
+# All possible precipitation variable names (lags 1-5)
+all_precip_names <- paste0("total_precipitation_lag", 1:5)
+
+# Which temp spline / precip terms does this model actually include?
+temp_coef_names   <- intersect(all_temp_bs_names, model_vars)
+precip_coef_names <- intersect(all_precip_names,  model_vars)
+
+# ── Graceful exit for models with no temperature spline terms ──────────────────
+if (length(temp_coef_names) == 0) {
+  cat("No temperature B-spline terms in this model — writing empty output.\n")
+  write_csv(
+    tibble(note = "No temperature B-spline terms in this model specification."),
+    file.path(out_dir, sprintf("%02d_%s_fe_samples_temp.csv", task_id, model_tag))
+  )
+  quit(status = 0)
+}
+
+# ── Load data ──────────────────────────────────────────────────────────────────
+dengue_temp <- read_csv("data/model_input_mexico-peru-brazil_immunity_city.csv",
                         show_col_types = FALSE)
 
+# The combined Mexico-Peru-Brazil file has `region` but not the region x
+# year / region x month interaction columns the Brazil-only file already
+# has precomputed — build them here, then filter to this task's countries.
+dengue_temp <- dengue_temp %>%
+  mutate(
+    year_region  = paste(year, region, sep = "_"),
+    month_region = paste(month, region, sep = "_")
+  ) %>%
+  filter(country %in% model_countries)
+
+cat("Training rows after country filter:", nrow(dengue_temp), "\n")
+
 # ── B-spline basis functions ───────────────────────────────────────────────────
-# Build splines for every lag that appears in *any* model so the column set is
-# stable; we only use the subset relevant to this model in the formula.
 temp_bs_fitted_lag1 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag1, df = 4)
 temp_bs_fitted_lag2 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag2, df = 4)
 temp_bs_fitted_lag3 <- bs(dengue_temp$mean_2m_air_temp_degree1_lag3, df = 4)
@@ -62,235 +143,123 @@ dengue_temp <- dengue_temp %>%
     temp_bs_lag54 = temp_bs_fitted_lag5[, 4],
     log_pop_offset = log(population / 100000),
     city_id        = as.integer(as.factor(city_residency)),
-    year_id        = as.integer(as.factor(year)),
-    month_id       = as.integer(as.factor(month))
+    year_id        = as.integer(as.factor(year_region)),
+    month_id       = as.integer(as.factor(month_region))
   )
 
-# ── Sanity checks ──────────────────────────────────────────────────────────────
-cat("Checking random effect indices...\n")
-stopifnot(!anyNA(dengue_temp$city_id),  min(dengue_temp$city_id)  >= 1)
-stopifnot(!anyNA(dengue_temp$year_id),  min(dengue_temp$year_id)  >= 1)
-stopifnot(!anyNA(dengue_temp$month_id), min(dengue_temp$month_id) >= 1)
-cat(sprintf("  city_id:  %d levels\n", n_distinct(dengue_temp$city_id)))
-cat(sprintf("  year_id:  %d levels\n", n_distinct(dengue_temp$year_id)))
-cat(sprintf("  month_id: %d levels\n", n_distinct(dengue_temp$month_id)))
+# ── Build INLA formula dynamically (identical logic to the original script) ────
+random_effect_vars <- c("city_residency", "year_region", "month_region",
+                        "year", "month")
 
-# ── Define variable names ──────────────────────────────────────────────────────
-temp_bs_names <- c(
-  "temp_bs_lag11","temp_bs_lag12","temp_bs_lag13","temp_bs_lag14",
-  "temp_bs_lag21","temp_bs_lag22","temp_bs_lag23","temp_bs_lag24",
-  "temp_bs_lag31","temp_bs_lag32","temp_bs_lag33","temp_bs_lag34",
-  "temp_bs_lag41","temp_bs_lag42","temp_bs_lag43","temp_bs_lag44",
-  "temp_bs_lag51","temp_bs_lag52","temp_bs_lag53","temp_bs_lag54"
+re_index_map <- list(
+  city_residency = "city_id",
+  year_region    = "year_id",
+  month_region   = "month_id",
+  year           = "year_id",
+  month          = "month_id"
 )
 
-precip_names <- c(
-  "total_precipitation_lag1","total_precipitation_lag2",
-  "total_precipitation_lag3","total_precipitation_lag4",
-  "total_precipitation_lag5"
-)
+cyclic_rw1_vars <- c("month_region", "month")
 
-# All continuous fixed effects to scale
-vars_to_scale <- intersect(
-  c(temp_bs_names, precip_names),
-  names(dengue_temp)
-)
+fe_vars <- setdiff(model_vars, random_effect_vars)
+re_vars <- intersect(model_vars, random_effect_vars)
 
-# ── Scale continuous fixed effects ─────────────────────────────────────────────
-cat("Scaling continuous fixed effects...\n")
-scaling_params <- list()
-dengue_temp <- dengue_temp %>%
-  mutate(across(
-    all_of(vars_to_scale),
-    ~ {
-      m <- mean(.x, na.rm = TRUE)
-      s <- sd(.x,   na.rm = TRUE)
-      scaling_params[[cur_column()]] <<- list(mean = m, sd = s)
-      if (s > 0) (.x - m) / s else .x - m
-    }
-  ))
-
-cat("Scaling params:\n")
-for (v in vars_to_scale) {
-  cat(sprintf("  %-35s  mean=%.3g  sd=%.3g\n", v,
-              scaling_params[[v]]$mean, scaling_params[[v]]$sd))
+if (length(fe_vars) > 0) {
+  fe_str <- paste(fe_vars, collapse = " + ")
+} else {
+  fe_str <- NULL
 }
 
-# ── Formula ────────────────────────────────────────────────────────────────────
-formula_m06 <- n_cases ~ -1 +
-  # Temperature B-spline basis, lag 1
-  temp_bs_lag11 + temp_bs_lag12 + temp_bs_lag13 + temp_bs_lag14 +
-  # Temperature B-spline basis, lag 2
-  temp_bs_lag21 + temp_bs_lag22 + temp_bs_lag23 + temp_bs_lag24 +
-  # Temperature B-spline basis, lag 3
-  temp_bs_lag31 + temp_bs_lag32 + temp_bs_lag33 + temp_bs_lag34 +
-  # Temperature B-spline basis, lag 4
-  temp_bs_lag41 + temp_bs_lag42 + temp_bs_lag43 + temp_bs_lag44 +
-  # Temperature B-spline basis, lag 5
-  temp_bs_lag51 + temp_bs_lag52 + temp_bs_lag53 + temp_bs_lag54 +
-  # Precipitation lags 1-5
-  total_precipitation_lag1 + total_precipitation_lag2 +
-  total_precipitation_lag3 + total_precipitation_lag4 +
-  total_precipitation_lag5 +
-  # Random effects
-  f(city_id,  model = "iid") +
-  f(year_id,  model = "iid") +
-  f(month_id, model = "rw1", cyclic = TRUE)
-
-cat("Formula:\n"); print(formula_m06)
-
-# ── Fit with progressive fallback ─────────────────────────────────────────────
-model_inla <- NULL
-for (strat in strategies) {
-  cat(sprintf("\nTrying strategy: %s\n", strat$label))
-  result <- tryCatch({
-    inla_args <- list(
-      formula           = formula_m06,
-      family            = "poisson",
-      data              = dengue_temp,
-      offset            = dengue_temp$log_pop_offset,
-      control.predictor = list(compute = TRUE, link = 1),
-      control.compute   = list(dic = TRUE, waic = TRUE, cpo = TRUE, config = TRUE),
-      control.inla      = list(strategy     = strat$strategy,
-                               int.strategy = strat$int.strategy),
-      verbose           = FALSE
-    )
-    if (!is.null(strat$num.threads)) inla_args$num.threads <- strat$num.threads
-    do.call(inla, inla_args)
-  }, error = function(e) {
-    cat(sprintf("  FAILED: %s\n", conditionMessage(e)))
-    NULL
-  })
-
-  if (!is.null(result)) {
-    cat(sprintf("  SUCCESS with strategy: %s\n", strat$label))
-    model_inla <- result
-    break
+re_str_parts <- sapply(re_vars, function(v) {
+  idx_col <- re_index_map[[v]]
+  if (v %in% cyclic_rw1_vars) {
+    sprintf('f(%s, model = "rw1", cyclic = TRUE)', idx_col)
+  } else {
+    sprintf('f(%s, model = "iid")', idx_col)
   }
-}
+})
+re_str <- if (length(re_str_parts) > 0) paste(re_str_parts, collapse = " + ") else NULL
 
-if (is.null(model_inla)) stop("All strategies failed for model 06.")
+rhs_parts <- c(fe_str, re_str)
+rhs_parts <- rhs_parts[!sapply(rhs_parts, is.null)]
+rhs       <- paste(rhs_parts, collapse = " + ")
 
-# ── Results summary ────────────────────────────────────────────────────────────
-cat(sprintf("\nDIC:  %.2f\n", model_inla$dic$dic))
-cat(sprintf("WAIC: %.2f\n", model_inla$waic$waic))
+formula_inla <- as.formula(paste("n_cases ~ -1 +", rhs))
+cat("Formula:\n"); print(formula_inla)
 
-cat("\nFixed effects summary:\n")
-print(model_inla$summary.fixed)
+# ── Fit model ──────────────────────────────────────────────────────────────────
+model_inla <- inla(
+  formula_inla,
+  family  = "poisson",
+  data    = dengue_temp,
+  offset  = dengue_temp$log_pop_offset,
+  control.predictor = list(compute = TRUE, link = 1),
+  control.compute   = list(
+    dic    = TRUE,
+    waic   = TRUE,
+    cpo    = TRUE,
+    config = TRUE
+  ),
+  control.inla = list(
+    strategy     = "simplified.laplace",
+    int.strategy = "ccd"
+  ),
+  verbose = FALSE
+)
 
-# ── Save outputs ───────────────────────────────────────────────────────────────
-out_dir <- "results/mexico"
-dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
+# ── Export fixed effects summary ───────────────────────────────────────────────
 write_csv(
   model_inla$summary.fixed %>% rownames_to_column("parameter"),
-  file.path(out_dir, "06_fixed_effects_summary.csv")
+  file.path(out_dir, sprintf("%02d_%s_fixed_effects_summary.csv", task_id, model_tag))
 )
-saveRDS(scaling_params, file.path(out_dir, "06_scaling_params.rds"))
 
-# ── Helper: extract named coefficients into a correctly-shaped matrix ──────────
-# Handles the single-term edge case where sapply() returns a vector instead of
-# a matrix, causing colnames<- to fail.
-extract_coef_matrix <- function(samples, coef_names, n_samples = 2000) {
-  mat <- t(sapply(samples, function(s) {
-    nm <- rownames(s$latent)
-    sapply(coef_names, function(coef) {
-      idx <- which(nm == paste0(coef, ":1"))
-      if (length(idx) == 1) s$latent[idx, 1] else NA_real_
-    })
-  }))
-  matrix(mat,
-         nrow     = n_samples,
-         ncol     = length(coef_names),
-         dimnames = list(NULL, coef_names))
-}
-
-# ── Helper: rescale posterior samples back to original predictor units ─────────
-# β_original = β_scaled / sd(x)
-# Recovers the log-rate change per one-unit increase in the original predictor.
-# Terms absent from scaling_params pass through unchanged.
-rescale_coef_matrix <- function(coef_mat, coef_names, scaling_params) {
-  for (j in seq_along(coef_names)) {
-    nm <- coef_names[j]
-    if (!is.null(scaling_params[[nm]]) && scaling_params[[nm]]$sd > 0) {
-      coef_mat[, j] <- coef_mat[, j] / scaling_params[[nm]]$sd
-    }
-  }
-  coef_mat
-}
-
-# ── Helper: build and write a scaled-vs-rescaled summary table ────────────────
-write_summary_comparison <- function(coef_names, samples_scaled, samples_original,
-                                     scaling_params, path) {
-  tibble(
-    parameter        = coef_names,
-    sd_original      = sapply(coef_names, function(v) scaling_params[[v]]$sd),
-    mean_scaled      = colMeans(samples_scaled,   na.rm = TRUE),
-    mean_original    = colMeans(samples_original, na.rm = TRUE),
-    sd_scaled        = apply(samples_scaled,   2, sd, na.rm = TRUE),
-    sd_original_coef = apply(samples_original, 2, sd, na.rm = TRUE)
-  ) %>% write_csv(path)
-}
-
-# ── Posterior samples ──────────────────────────────────────────────────────────
-# Subset to only those variables actually present in the data
-temp_coef_names   <- intersect(temp_bs_names, vars_to_scale)
-precip_coef_names <- intersect(precip_names,  vars_to_scale)
-
-cat("\nSampling 2000 posterior draws...\n")
+# ── Posterior sampling — temperature B-spline + precipitation coefficients ─────
+cat("Sampling from posterior...\n")
 n_samples <- 2000
-samples   <- inla.posterior.sample(n_samples, model_inla)
+samples <- inla.posterior.sample(n_samples, model_inla)
 
+# Verify naming used by INLA (fixed effects get a ':1' suffix in the latent field)
 all_latent_names <- rownames(samples[[1]]$latent)
 cat("Temperature B-spline terms found in latent field:\n")
 print(all_latent_names[grepl("temp_bs", all_latent_names)])
 cat("Precipitation terms found in latent field:\n")
-print(all_latent_names[grepl("precipitation", all_latent_names)])
+print(all_latent_names[grepl("total_precipitation", all_latent_names)])
 
-# ── Temperature posterior samples ─────────────────────────────────────────────
-found <- sapply(temp_coef_names, function(cn) paste0(cn, ":1") %in% all_latent_names)
-if (any(!found))
-  warning(sprintf("Temp terms not found in latent field: %s",
-                  paste(temp_coef_names[!found], collapse = ", ")))
+# Helper to extract named coefficients from a single posterior sample
+extract_coefs <- function(s, coef_names) {
+  nm <- rownames(s$latent)
+  sapply(coef_names, function(coef) {
+    idx <- which(nm == paste0(coef, ":1"))
+    if (length(idx) == 1) s$latent[idx, 1] else NA_real_
+  })
+}
 
-fe_samples_temp_scaled   <- extract_coef_matrix(samples, temp_coef_names, n_samples)
-fe_samples_temp_original <- rescale_coef_matrix(fe_samples_temp_scaled,
-                                                 temp_coef_names, scaling_params)
+# Temperature B-spline samples
+fe_samples_temp <- t(sapply(samples, extract_coefs, coef_names = temp_coef_names))
+colnames(fe_samples_temp) <- temp_coef_names
 
-write_csv(as.data.frame(fe_samples_temp_scaled),
-          file.path(out_dir, "06_fe_samples_temp_scaled.csv"))
-write_csv(as.data.frame(fe_samples_temp_original),
-          file.path(out_dir, "06_fe_samples_temp_original_scale.csv"))
-write_summary_comparison(
-  temp_coef_names,
-  fe_samples_temp_scaled, fe_samples_temp_original,
-  scaling_params,
-  file.path(out_dir, "06_fe_summary_temp_scaled_vs_original.csv")
+write_csv(
+  as.data.frame(fe_samples_temp),
+  file.path(out_dir, sprintf("%02d_%s_fe_samples_temp.csv", task_id, model_tag))
 )
-cat(sprintf("  Temperature samples written (%d terms, scaled + rescaled).\n",
-            length(temp_coef_names)))
+cat(sprintf("Temperature samples written (%d terms).\n", length(temp_coef_names)))
 
-# ── Precipitation posterior samples ───────────────────────────────────────────
-found <- sapply(precip_coef_names, function(cn) paste0(cn, ":1") %in% all_latent_names)
-if (any(!found))
-  warning(sprintf("Precip terms not found in latent field: %s",
-                  paste(precip_coef_names[!found], collapse = ", ")))
+# Precipitation samples (only written if this model includes precipitation terms)
+if (length(precip_coef_names) > 0) {
+  fe_samples_precip <- t(sapply(samples, extract_coefs, coef_names = precip_coef_names))
 
-fe_samples_precip_scaled   <- extract_coef_matrix(samples, precip_coef_names, n_samples)
-fe_samples_precip_original <- rescale_coef_matrix(fe_samples_precip_scaled,
-                                                   precip_coef_names, scaling_params)
+  # When there is only one precip term, sapply returns a vector and t() gives a
+  # 1-row matrix — coerce explicitly so colnames() always works.
+  fe_samples_precip <- matrix(fe_samples_precip,
+                               nrow  = n_samples,
+                               ncol  = length(precip_coef_names),
+                               dimnames = list(NULL, precip_coef_names))
 
-write_csv(as.data.frame(fe_samples_precip_scaled),
-          file.path(out_dir, "06_fe_samples_precip_scaled.csv"))
-write_csv(as.data.frame(fe_samples_precip_original),
-          file.path(out_dir, "06_fe_samples_precip_original_scale.csv"))
-write_summary_comparison(
-  precip_coef_names,
-  fe_samples_precip_scaled, fe_samples_precip_original,
-  scaling_params,
-  file.path(out_dir, "06_fe_summary_precip_scaled_vs_original.csv")
-)
-cat(sprintf("  Precipitation samples written (%d terms, scaled + rescaled).\n",
-            length(precip_coef_names)))
+  write_csv(
+    as.data.frame(fe_samples_precip),
+    file.path(out_dir, sprintf("%02d_%s_fe_samples_precip.csv", task_id, model_tag))
+  )
+  cat(sprintf("Precipitation samples written (%d terms).\n", length(precip_coef_names)))
+}
 
-cat(sprintf("\nDone. All outputs written to: %s\n", out_dir))
+cat(sprintf("Done. Outputs written to: %s\n", out_dir))
